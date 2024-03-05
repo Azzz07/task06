@@ -1,0 +1,190 @@
+_schema-version: "3.1"
+ID: task06
+description: A simple CAP project.
+version: 1.0.0
+modules:
+- name: task06-srv
+  type: nodejs
+  path: gen/srv
+  requires:
+  - name: task06-db
+  - name: uaa_task06
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+  build-parameters:
+    builder: npm
+- name: task06-db-deployer
+  type: hdb
+  path: gen/db
+  requires:
+  - name: task06-db
+  parameters:
+    buildpack: nodejs_buildpack
+- name: task06-destination-content
+  type: com.sap.application.content
+  requires:
+  - name: task06-destination-service
+    parameters:
+      content-target: true
+  - name: task06_html_repo_host
+    parameters:
+      service-key:
+        name: task06_html_repo_host-key
+  - name: uaa_task06
+    parameters:
+      service-key:
+        name: uaa_task06-key
+  parameters:
+    content:
+      instance:
+        destinations:
+        - Name: testapprouter_task06_html_repo_host
+          ServiceInstanceName: task06-html5-app-host-service
+          ServiceKeyName: task06_html_repo_host-key
+          sap.cloud.service: testapprouter
+        - Authentication: OAuth2UserTokenExchange
+          Name: testapprouter_uaa_task06
+          ServiceInstanceName: task06-xsuaa-service
+          ServiceKeyName: uaa_task06-key
+          sap.cloud.service: testapprouter
+        existing_destinations_policy: ignore
+  build-parameters:
+    no-source: true
+- name: task06-app-content
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: task06_html_repo_host
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: resources
+    requires:
+    - artifacts:
+      - app.zip
+      name: app
+      target-path: resources/
+    - artifacts:
+      - app2.zip
+      name: app2
+      target-path: resources/
+    - artifacts:
+      - crcnav.zip
+      name: crcnav
+      target-path: resources/
+    - artifacts:
+      - crcnavv.zip
+      name: crcnavv
+      target-path: resources/
+    - artifacts:
+      - cnv.zip
+      name: cnv
+      target-path: resources/
+- name: app
+  type: html5
+  path: app/app
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: app2
+  type: html5
+  path: app/app2
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: crcnav
+  type: html5
+  path: app/crcnav
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: crcnavv
+  type: html5
+  path: app/crcnavv
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: cnv
+  type: html5
+  path: app/cnv
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: task06-db
+  type: com.sap.xs.hdi-container
+  parameters:
+    service: hana
+    service-plan: hdi-shared
+- name: task06-destination-service
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: true
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          - Authentication: NoAuthentication
+            HTML5.DynamicDestination: true
+            HTML5.ForwardAuthToken: true
+            Name: task06-srv-api
+            ProxyType: Internet
+            Type: HTTP
+            URL: ~{srv-api/srv-url}
+          existing_destinations_policy: update
+      version: 1.0.0
+    service: destination
+    service-name: task06-destination-service
+    service-plan: lite
+  requires:
+  - name: srv-api
+- name: task06_html_repo_host
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-name: task06-html5-app-host-service
+    service-plan: app-host
+- name: uaa_task06
+  type: org.cloudfoundry.managed-service
+  parameters:
+    path: ./xs-security.json
+    service: xsuaa
+    service-name: task06-xsuaa-service
+    service-plan: application
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+  - builder: custom
+    commands:
+    - npx cds build --production
